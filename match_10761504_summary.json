@@ -1,0 +1,24 @@
+{
+  "be493a75415d4b1a8c8aa1a1a9670b86": {
+    "nickname": "wintrmint",
+    "enter_time_ms": 184370,
+    "find_time_ms": 234382,
+    "loot_time_ms": 336852,
+    "enter_to_find_ms": 50012,
+    "enter_to_loot_ms": 152482,
+    "enter_time_s": 184.37,
+    "enter_to_find_s": 50.012,
+    "enter_to_loot_s": 152.482
+  },
+  "4086dc1e38f74138b082b1ec1268bae5": {
+    "nickname": "JohnIsAGuy",
+    "enter_time_ms": 134620,
+    "find_time_ms": 182278,
+    "loot_time_ms": 286189,
+    "enter_to_find_ms": 47658,
+    "enter_to_loot_ms": 151569,
+    "enter_time_s": 134.62,
+    "enter_to_find_s": 47.658,
+    "enter_to_loot_s": 151.569
+  }
+}
