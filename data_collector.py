@@ -432,11 +432,11 @@ def get_player_match_data(username):
             "MIN(CASE WHEN t.event_type='story.enter_the_nether' THEN t.event_time_ms END) AS nether_enter_time, "
             "MIN(CASE WHEN t.event_type='nether.find_bastion' THEN t.event_time_ms END) AS bastion_enter_time, "
             "MIN(CASE WHEN t.event_type='nether.find_fortress' THEN t.event_time_ms END) AS fortress_enter_time, "
-            "MIN(CASE WHEN t.event_type='projectelo.timeline.blind_travel' THEN t.event_time_ms END) AS blind_time, "
-            "MIN(CASE WHEN t.event_type='story.follow_ender_eye' THEN t.event_time_ms END) AS stronghold_time, "
-            "MIN(CASE WHEN t.event_type='story.enter_the_end' THEN t.event_time_ms END) AS end_enter_time, "
-            "AVG(CASE WHEN t.event_type='projectelo.timeline.blind_travel' AND t.player_uuid <> %s THEN t.event_time_ms END) AS opponent_blind_time, "
-            "AVG(CASE WHEN t.event_type='story.follow_ender_eye' AND t.player_uuid <> %s THEN t.event_time_ms END) AS opponent_stronghold_time "
+            "MIN(CASE WHEN t.event_type='projectelo.timeline.blind_travel' AND t.player_uuid = %s THEN t.event_time_ms END) AS blind_time, "
+            "MIN(CASE WHEN t.event_type='story.follow_ender_eye' AND t.player_uuid = %s THEN t.event_time_ms END) AS stronghold_time, "
+            "MIN(CASE WHEN t.event_type='story.enter_the_end' AND t.player_uuid = %s THEN t.event_time_ms END) AS end_enter_time, "
+            "MIN(CASE WHEN t.event_type='projectelo.timeline.blind_travel' AND t.player_uuid <> %s THEN t.event_time_ms END) AS opponent_blind_time, "
+            "MIN(CASE WHEN t.event_type='story.follow_ender_eye' AND t.player_uuid <> %s THEN t.event_time_ms END) AS opponent_stronghold_time "
             "FROM timelines t "
             "WHERE t.match_id IN ("
             "    SELECT DISTINCT match_id "
@@ -457,7 +457,7 @@ def get_player_match_data(username):
             "OR MIN(CASE WHEN t.event_type='story.enter_the_end' THEN t.event_time_ms END) IS NOT NULL"
         )
 
-        cursor.execute(query, (player_uuid, player_uuid, player_uuid))
+        cursor.execute(query, (player_uuid, player_uuid, player_uuid, player_uuid, player_uuid, player_uuid))
         results = cursor.fetchall()
 
         records = []
