@@ -408,6 +408,87 @@ def get_blind_splits(username):
             pass
         return pd.DataFrame()
 
+def get_player_match_data(username):
+    conn = db_connection()
+    if not conn:
+        print("No DB connection")
+        return pd.DataFrame()
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT uuid FROM players WHERE nickname=%s", (username,))
+        row = cursor.fetchone()
+        if not row:
+            print(f"No player found with nickname {username}")
+            cursor.close()
+            conn.close()
+            return pd.DataFrame()
+
+        player_uuid = row[0]
+
+        query = (
+            "SELECT "
+            "t.match_id, "
+            "MIN(CASE WHEN t.event_type='story.enter_the_nether' THEN t.event_time_ms END) AS nether_enter_time, "
+            "MIN(CASE WHEN t.event_type='nether.find_bastion' THEN t.event_time_ms END) AS bastion_enter_time, "
+            "MIN(CASE WHEN t.event_type='nether.find_fortress' THEN t.event_time_ms END) AS fortress_enter_time, "
+            "MIN(CASE WHEN t.event_type='projectelo.timeline.blind_travel' THEN t.event_time_ms END) AS blind_time, "
+            "MIN(CASE WHEN t.event_type='story.follow_ender_eye' THEN t.event_time_ms END) AS stronghold_time, "
+            "MIN(CASE WHEN t.event_type='story.enter_the_end' THEN t.event_time_ms END) AS end_enter_time, "
+            "AVG(CASE WHEN t.event_type='projectelo.timeline.blind_travel' AND t.player_uuid <> %s THEN t.event_time_ms END) AS opponent_blind_time, "
+            "AVG(CASE WHEN t.event_type='story.follow_ender_eye' AND t.player_uuid <> %s THEN t.event_time_ms END) AS opponent_stronghold_time "
+            "FROM timelines t "
+            "WHERE t.match_id IN ("
+            "    SELECT DISTINCT match_id "
+            "    FROM timelines "
+            "    WHERE player_uuid=%s "
+            "      AND event_type IN ('story.enter_the_nether', 'nether.find_bastion', 'nether.find_fortress', "
+            "'projectelo.timeline.blind_travel', 'story.follow_ender_eye', 'story.enter_the_end')"
+            ") "
+            "AND t.event_type IN ('story.enter_the_nether', 'nether.find_bastion', 'nether.find_fortress', "
+            "'projectelo.timeline.blind_travel', 'story.follow_ender_eye', 'story.enter_the_end') "
+            "GROUP BY t.match_id "
+            "HAVING "
+            "MIN(CASE WHEN t.event_type='story.enter_the_nether' THEN t.event_time_ms END) IS NOT NULL "
+            "OR MIN(CASE WHEN t.event_type='nether.find_bastion' THEN t.event_time_ms END) IS NOT NULL "
+            "OR MIN(CASE WHEN t.event_type='nether.find_fortress' THEN t.event_time_ms END) IS NOT NULL "
+            "OR MIN(CASE WHEN t.event_type='projectelo.timeline.blind_travel' THEN t.event_time_ms END) IS NOT NULL "
+            "OR MIN(CASE WHEN t.event_type='story.follow_ender_eye' THEN t.event_time_ms END) IS NOT NULL "
+            "OR MIN(CASE WHEN t.event_type='story.enter_the_end' THEN t.event_time_ms END) IS NOT NULL"
+        )
+
+        cursor.execute(query, (player_uuid, player_uuid, player_uuid))
+        results = cursor.fetchall()
+
+        records = []
+        for match_id, nether_enter_time, bastion_enter_time, fortress_enter_time, blind_time, stronghold_time, end_enter_time, opponent_blind_time, opponent_stronghold_time in results:
+            records.append({
+                'matchid': match_id,
+                'nether_enter_time': nether_enter_time,
+                'bastion_enter_time': bastion_enter_time,
+                'fortress_enter_time': fortress_enter_time,
+                'blind_time': blind_time,
+                'stronghold_time': stronghold_time,
+                'end_enter_time': end_enter_time,
+                'opponent_blind_time': opponent_blind_time,
+                'opponent_stronghold_time': opponent_stronghold_time,
+            })
+
+        df = pd.DataFrame(records)
+        cursor.close()
+        conn.close()
+        return df
+    except Exception as e:
+        print(f"Error fetching player match data: {e}")
+        try:
+            cursor.close()
+        except:
+            pass
+        try:
+            conn.close()
+        except:
+            pass
+        return pd.DataFrame()
 
 if __name__ == '__main__':
     conn = db_connection()

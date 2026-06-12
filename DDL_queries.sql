@@ -94,6 +94,15 @@ CREATE TABLE match_players (
     )
 );
 
+CREATE TABLE player_blind_stats(
+    username VARCHAR(50) PRIMARY KEY,
+    meanBlind float,
+    sdBlind float,
+    q1 float,
+    q2 float,
+    q3 float
+);
+
 CREATE TABLE timelines (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
 
