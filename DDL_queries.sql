@@ -94,13 +94,17 @@ CREATE TABLE match_players (
     )
 );
 
-CREATE TABLE player_blind_stats(
-    username VARCHAR(50) PRIMARY KEY,
-    meanBlind float,
-    sdBlind float,
-    q1 float,
-    q2 float,
-    q3 float
+CREATE Table player_blind_stats(
+    username VARCHAR(50),
+    date_time DATETIME,
+    avg_blind_split BIGINT NOT NULL,
+    sd_blind_split BIGINT NOT NULL,
+    ESFR FLOAT NOT NULL,
+    CR FLOAT NOT NULL,
+    FBR FLOAT NOT NULL,
+    CS_SCORE FLOAT NOT NULL,
+    avg_blind_when_ahead BIGINT NOT NULL,
+    avg_blind_when_behind BIGINT NOT NULL
 );
 
 CREATE TABLE timelines (

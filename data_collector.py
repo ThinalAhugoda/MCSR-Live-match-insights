@@ -1,4 +1,5 @@
-# This is to get data from MCSR API and store it in a database and some functions are here to collect data for the predictors
+# This is to get data from MCSR API and store it in a database.
+# Apart  from getting data from the API this module contains some function which collects and store the new data points that is been created by the predictors.
 
 
 #Dependencies
@@ -341,154 +342,37 @@ def insert_user_matches_data(conn, user_matches_data):
         print(f"Error inserting user matches data: {e}")
         print(traceback.format_exc())
 
-############################################################################################
-#This part contains functions that is used by predictors to pull data from the db
+#####################################################################################################
+#The function below are responsible for storing data created by the analysis predictors
 
-def get_blind_splits(username):
-    # Connect to DB and fetch player's UUID
-    conn = db_connection()
-    if not conn:
-        print("No DB connection")
-        return pd.DataFrame()
+def insert_player_blind_stats(username, avg, sd, ESFR, CR, FBR, CS_score, avg_ABS, avg_BBS):
+    try:
+        conn = db_connection()
+        if not conn:
+            print("No database connection")
+            return
+        cursor = conn.cursor()
+    except Exception as e:
+        print("Error connecting to the database:", e)
+        return
+
+    query = """
+    INSERT INTO player_blind_stats
+    (`username`, `date_time`, `avg_blind_split`, `sd_blind_split`, `ESFR`, `CR`, `FBR`,
+    `CS_SCORE`, `avg_blind_when_ahead`, `avg_blind_when_behind`)
+    VALUES (%s, NOW(), %s, %s, %s, %s, %s, %s, %s, %s)
+    """
 
     try:
-        cursor = conn.cursor()
-        cursor.execute("SELECT uuid FROM players WHERE nickname=%s", (username,))
-        row = cursor.fetchone()
-        if not row:
-            print(f"No player found with nickname {username}")
-            cursor.close()
-            conn.close()
-            return pd.DataFrame()
-
-        player_uuid = row[0]
-
-        # Aggregate blind enter and stronghold enter times per match
-        query = (
-            "SELECT match_id, "
-            "MIN(CASE WHEN event_type='projectelo.timeline.blind_travel' THEN event_time_ms END) AS blind_time, "
-            "MIN(CASE WHEN event_type='story.follow_ender_eye' THEN event_time_ms END) AS strong_time "
-            "FROM timelines "
-            "WHERE player_uuid=%s AND event_type IN ('projectelo.timeline.blind_travel','story.follow_ender_eye') "
-            "GROUP BY match_id "
-            "HAVING blind_time IS NOT NULL AND strong_time IS NOT NULL"
-        )
-
-        cursor.execute(query, (player_uuid,))
-        results = cursor.fetchall()
-
-        # Build dataframe with requested keys: matchid, blind_entertime, stronghold_entertime, blind_split_ms
-        records = []
-        for match_id, blind_time, strong_time in results:
-            try:
-                split = None
-                if blind_time is not None and strong_time is not None:
-                    split = int(strong_time) - int(blind_time)
-                records.append({
-                    'matchid': match_id,
-                    'blind_entertime': blind_time,
-                    'stronghold_entertime': strong_time,
-                    'blind_split_ms': split
-                })
-            except Exception as e:
-                print("Error creating the list")
-        df = pd.DataFrame(records)
-        cursor.close()
-        conn.close()
-        return df
+        cursor.execute(query, (username, avg, sd, ESFR, CR, FBR, CS_score, avg_ABS, avg_BBS))
+        conn.commit()
+        print("Player data inserted successfully")
+    except mariadb.IntegrityError as e:
+        print("Invalid data")
     except Exception as e:
-        print(f"Error fetching blind splits: {e}")
-        try:
-            cursor.close()
-        except:
-            pass
-        try:
-            conn.close()
-        except:
-            pass
-        return pd.DataFrame()
-
-def get_player_match_data(username):
-    conn = db_connection()
-    if not conn:
-        print("No DB connection")
-        return pd.DataFrame()
-
-    try:
-        cursor = conn.cursor()
-        cursor.execute("SELECT uuid FROM players WHERE nickname=%s", (username,))
-        row = cursor.fetchone()
-        if not row:
-            print(f"No player found with nickname {username}")
-            cursor.close()
-            conn.close()
-            return pd.DataFrame()
-
-        player_uuid = row[0]
-
-        query = (
-            "SELECT "
-            "t.match_id, "
-            "MIN(CASE WHEN t.event_type='story.enter_the_nether' THEN t.event_time_ms END) AS nether_enter_time, "
-            "MIN(CASE WHEN t.event_type='nether.find_bastion' THEN t.event_time_ms END) AS bastion_enter_time, "
-            "MIN(CASE WHEN t.event_type='nether.find_fortress' THEN t.event_time_ms END) AS fortress_enter_time, "
-            "MIN(CASE WHEN t.event_type='projectelo.timeline.blind_travel' AND t.player_uuid = %s THEN t.event_time_ms END) AS blind_time, "
-            "MIN(CASE WHEN t.event_type='story.follow_ender_eye' AND t.player_uuid = %s THEN t.event_time_ms END) AS stronghold_time, "
-            "MIN(CASE WHEN t.event_type='story.enter_the_end' AND t.player_uuid = %s THEN t.event_time_ms END) AS end_enter_time, "
-            "MIN(CASE WHEN t.event_type='projectelo.timeline.blind_travel' AND t.player_uuid <> %s THEN t.event_time_ms END) AS opponent_blind_time, "
-            "MIN(CASE WHEN t.event_type='story.follow_ender_eye' AND t.player_uuid <> %s THEN t.event_time_ms END) AS opponent_stronghold_time "
-            "FROM timelines t "
-            "WHERE t.match_id IN ("
-            "    SELECT DISTINCT match_id "
-            "    FROM timelines "
-            "    WHERE player_uuid=%s "
-            "      AND event_type IN ('story.enter_the_nether', 'nether.find_bastion', 'nether.find_fortress', "
-            "'projectelo.timeline.blind_travel', 'story.follow_ender_eye', 'story.enter_the_end')"
-            ") "
-            "AND t.event_type IN ('story.enter_the_nether', 'nether.find_bastion', 'nether.find_fortress', "
-            "'projectelo.timeline.blind_travel', 'story.follow_ender_eye', 'story.enter_the_end') "
-            "GROUP BY t.match_id "
-            "HAVING "
-            "MIN(CASE WHEN t.event_type='story.enter_the_nether' THEN t.event_time_ms END) IS NOT NULL "
-            "OR MIN(CASE WHEN t.event_type='nether.find_bastion' THEN t.event_time_ms END) IS NOT NULL "
-            "OR MIN(CASE WHEN t.event_type='nether.find_fortress' THEN t.event_time_ms END) IS NOT NULL "
-            "OR MIN(CASE WHEN t.event_type='projectelo.timeline.blind_travel' THEN t.event_time_ms END) IS NOT NULL "
-            "OR MIN(CASE WHEN t.event_type='story.follow_ender_eye' THEN t.event_time_ms END) IS NOT NULL "
-            "OR MIN(CASE WHEN t.event_type='story.enter_the_end' THEN t.event_time_ms END) IS NOT NULL"
-        )
-
-        cursor.execute(query, (player_uuid, player_uuid, player_uuid, player_uuid, player_uuid, player_uuid))
-        results = cursor.fetchall()
-
-        records = []
-        for match_id, nether_enter_time, bastion_enter_time, fortress_enter_time, blind_time, stronghold_time, end_enter_time, opponent_blind_time, opponent_stronghold_time in results:
-            records.append({
-                'matchid': match_id,
-                'nether_enter_time': nether_enter_time,
-                'bastion_enter_time': bastion_enter_time,
-                'fortress_enter_time': fortress_enter_time,
-                'blind_time': blind_time,
-                'stronghold_time': stronghold_time,
-                'end_enter_time': end_enter_time,
-                'opponent_blind_time': opponent_blind_time,
-                'opponent_stronghold_time': opponent_stronghold_time,
-            })
-
-        df = pd.DataFrame(records)
+        print("Error occured when inserting data")
+    finally:
         cursor.close()
-        conn.close()
-        return df
-    except Exception as e:
-        print(f"Error fetching player match data: {e}")
-        try:
-            cursor.close()
-        except:
-            pass
-        try:
-            conn.close()
-        except:
-            pass
-        return pd.DataFrame()
 
 if __name__ == '__main__':
     conn = db_connection()
