@@ -172,3 +172,37 @@ def get_player_match_data(username):
         except Exception:
             pass
         return pd.DataFrame()
+    
+
+#########################################################################################
+#Functions used by the ESP-app.py
+
+def get_match_data(matchId):
+    """This function will pull relevant match data if not found will be pulling data using the API"""
+    conn = db_connection()
+    if not conn:
+        print("No DB connection")
+        return pd.DataFrame()
+    
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT player_uuid FROM match_players WHERE match_id = %s ORDER BY id LIMIT 2;",(matchId,))
+        player_uuids= cursor.fetchall()
+        participants = []
+
+        if player_uuids is not None:
+            for players in player_uuids:
+                cursor.execute("SELECT nickname FROM players where uuid=%s", (players,))
+                player=cursor.fetchall()
+                print(f"Player found for match:{matchId} - {player}")
+                participants.append(player)
+
+        else:
+            # Pull from the API
+            pass
+    except Exception as e:
+        print(f"A error occured while looking for match data: {e}")
+
+    return participants
+
+        

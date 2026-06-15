@@ -346,33 +346,53 @@ def insert_user_matches_data(conn, user_matches_data):
 #The function below are responsible for storing data created by the analysis predictors
 
 def insert_player_blind_stats(username, avg, sd, ESFR, CR, FBR, CS_score, avg_ABS, avg_BBS):
+    conn = None
+    cursor = None
+
     try:
         conn = db_connection()
         if not conn:
             print("No database connection")
             return
+
         cursor = conn.cursor()
-    except Exception as e:
-        print("Error connecting to the database:", e)
-        return
 
-    query = """
-    INSERT INTO player_blind_stats
-    (`username`, `date_time`, `avg_blind_split`, `sd_blind_split`, `ESFR`, `CR`, `FBR`,
-    `CS_SCORE`, `avg_blind_when_ahead`, `avg_blind_when_behind`)
-    VALUES (%s, NOW(), %s, %s, %s, %s, %s, %s, %s, %s)
-    """
+        values = (
+            username,
+            float(avg) if pd.notna(avg) else 0.0,
+            float(sd) if pd.notna(sd) else 0.0,
+            float(ESFR) if pd.notna(ESFR) else 0.0,
+            float(CR) if pd.notna(CR) else 0.0,
+            float(FBR) if pd.notna(FBR) else 0.0,
+            float(CS_score) if pd.notna(CS_score) else 0.0,
+            float(avg_ABS) if pd.notna(avg_ABS) else 0.0,
+            float(avg_BBS) if pd.notna(avg_BBS) else 0.0,
+        )
 
-    try:
-        cursor.execute(query, (username, avg, sd, ESFR, CR, FBR, CS_score, avg_ABS, avg_BBS))
+        query = """
+        INSERT INTO player_blind_stats
+        (`username`, `date_time`, `avg_blind_split`, `sd_blind_split`, `ESFR`, `CR`, `FBR`,
+        `CS_SCORE`, `avg_blind_when_ahead`, `avg_blind_when_behind`)
+        VALUES (%s, NOW(), %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+
+        cursor.execute(query, values)
         conn.commit()
         print("Player data inserted successfully")
-    except mariadb.IntegrityError as e:
-        print("Invalid data")
+    except mysql.connector.IntegrityError as e:
+        print("Invalid data:", e)
+        if conn:
+            conn.rollback()
     except Exception as e:
-        print("Error occured when inserting data")
+        print("Error occurred when inserting data:", e)
+        print(traceback.format_exc())
+        if conn:
+            conn.rollback()
     finally:
-        cursor.close()
+        if cursor is not None:
+            cursor.close()
+        if conn is not None:
+            conn.close()
 
 if __name__ == '__main__':
     conn = db_connection()
