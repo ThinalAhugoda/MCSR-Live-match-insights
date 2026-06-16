@@ -2,8 +2,13 @@ import importlib
 import db_queries
 import data_collector
 import matplotlib.pyplot as plt
+from data_collector import user_matches_data_collector, match_data_collector, insert_match_data, insert_ESP_prediction_data
+import os
+import time
+from scipy.stats import norm
+import math
 
-
+results=[]
 
 def get_avg_std(df):
     avg_blind = df["blind_split_ms"].mean()
@@ -87,8 +92,53 @@ def calculate_correlation_gap_ESFR(df1):
     ).copy()
 
 ################################################################################################
-def calculate_expected_time(username, avg, sd, esfr, cr, fbr, CS_score, avg_blind_ahead, avg_blind_behind):
-    return "Hi still in development"
+def calculate_expected_time(username, match_id, avg, sd, esfr, cr, fbr, CS_score, avg_blind_ahead, avg_blind_behind):
+    #In oder to stop testing function running change the below variable to fasle
+    testing_status = True
+
+    timeline_df = db_queries.get_player_match_data(username)
+
+    if timeline_df.empty:
+        print(f"No timeline data found for user {username}")
+        return
+
+    if "matchid" not in timeline_df.columns:
+        print("Expected column 'matchid' not found in timeline_df")
+        return
+
+    try:
+        match_id_key = int(match_id)
+    except (ValueError, TypeError):
+        match_id_key = match_id
+
+    match_rows = timeline_df[timeline_df["matchid"] == match_id_key]
+    if match_rows.empty:
+        print(f"Match ID {match_id} not found in timeline data")
+        return
+
+    row = match_rows.iloc[0]
+
+    if row["blind_time"] < row["opponent_blind_time"]:
+        blind_ahead = True
+    else: 
+        blind_ahead = False
+
+    #Main prediction calculation : Version 1 
+    if blind_ahead:
+        base_pred_time = (row["blind_time"] + avg_blind_ahead)
+        confidence_interval = 2 * sd * (CS_score/100)
+        final_pred_time = base_pred_time + confidence_interval
+    else :
+        base_pred_time = (row["blind_time"] + avg_blind_behind)
+        confidence_interval = 2 * sd * (CS_score/100)
+        final_pred_time = base_pred_time + confidence_interval
+
+    if testing_status:
+        pred_data = [username, final_pred_time, row["stronghold_time"]]
+        results.append(pred_data)
+        insert_ESP_prediction_data()
+
+    return final_pred_time
     
 def main():
     # Reload the module so the notebook uses the latest version of get_player_match_data
@@ -96,6 +146,33 @@ def main():
     importlib.reload(data_collector)
 
     username = input("Enter the username: ")
+    print("Note that the user user stats are not created due to no match data available in the DB or the existing data is outdated")
+    print(f"Therfore {username} latest data will be pulled")
+
+    user_matches_data = user_matches_data_collector(username, quiet=True)
+
+    matches = user_matches_data.get('data', []) or []
+    total = len(matches)
+    print(f"Found {total} matches for {username}. Processing...")
+    # optional delay between requests (seconds)
+    delay = float(os.getenv('MCSR_REQUEST_DELAY', '0'))
+    processed = 0
+    for idx, m in enumerate(matches):
+        if not m or not isinstance(m, dict):
+            continue
+        match_id = m.get('id')
+        if not match_id:
+            continue
+        # progress print only
+        print(f"Processing {idx+1}/{total}: match {match_id}")
+        match_data = match_data_collector(match_id, quiet=True)
+        insert_match_data(match_data)
+        processed += 1
+        if delay > 0:
+            time.sleep(delay)
+    print(f"Processed {processed}/{total} matches for user")
+    print("\n")
+
     df = db_queries.get_blind_splits(username)
     print(df)
 

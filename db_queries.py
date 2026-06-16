@@ -6,6 +6,8 @@ import dotenv
 import mysql.connector
 import pandas as pd
 
+from data_collector import match_data_collector, insert_match_data
+
 dotenv.load_dotenv("credentials.env")
 
 DB_USER = os.getenv('DB_USER')
@@ -21,7 +23,6 @@ def db_connection():
             password=DB_PASS,
             database=DB_NAME,
         )
-        print("Database connected successfully")
         return conn
     except Exception as e:
         print(e)
@@ -186,20 +187,45 @@ def get_match_data(matchId):
     
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT player_uuid FROM match_players WHERE match_id = %s ORDER BY id LIMIT 2;",(matchId,))
-        player_uuids= cursor.fetchall()
+        cursor.execute("SELECT player_uuid FROM match_players WHERE match_id = %s ORDER BY id LIMIT 2;", (matchId,))
+        player_uuids = cursor.fetchall()
         participants = []
 
-        if player_uuids is not None:
-            for players in player_uuids:
-                cursor.execute("SELECT nickname FROM players where uuid=%s", (players,))
-                player=cursor.fetchall()
-                print(f"Player found for match:{matchId} - {player}")
-                participants.append(player)
+        if player_uuids:
+            for player_row in player_uuids:
+                player_uuid = player_row[0]
+                cursor.execute("SELECT nickname FROM players WHERE uuid=%s", (player_uuid,))
+                player = cursor.fetchone()
+                if player:
+                    nickname = player[0]
+                    print(f"Player found for match:{matchId} - {nickname}")
+                    participants.append(nickname)
+                else:
+                    print(f"No nickname found for uuid {player_uuid} in match {matchId}")
 
         else:
             # Pull from the API
-            pass
+            match_data = match_data_collector(matchId, quiet=True)
+            insert_match_data(match_data)
+
+            if match_data is None:
+                print("No match data provided")
+                return
+            if isinstance(match_data, dict) and 'data' in match_data and isinstance(match_data['data'], dict):
+                match = match_data['data']
+            elif isinstance(match_data, dict) and 'id' in match_data:
+                match = match_data
+            else:
+                match = {}
+            
+            players = match.get('players', []) or []
+            for player in players:
+                if not player or not isinstance(player, dict):
+                  print(f"Skipping malformed player entry in match {matchId}: {player}")
+                  continue
+                nickname = player.get('nickname')
+                participants.append(nickname)
+                
     except Exception as e:
         print(f"A error occured while looking for match data: {e}")
 

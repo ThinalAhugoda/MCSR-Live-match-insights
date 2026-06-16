@@ -29,7 +29,6 @@ def db_connection():
             password=DB_PASS,
             database=DB_NAME
         )
-        print("Database connected successfully")
         return conn
     except Exception as e:
         print(e)
@@ -94,11 +93,9 @@ def user_matches_data_collector(username, quiet=False):
     return data
 
 
-def insert_match_data(conn, match_data):
+def insert_match_data(match_data):
     """Insert match data into matches and match_players tables"""
-    if not conn:
-        print("No database connection")
-        return
+    conn = db_connection()
     try:
         cursor = conn.cursor()
         # match_data can be either the full API response {'data': {...}}
@@ -330,7 +327,7 @@ def insert_user_matches_data(conn, user_matches_data):
             try:
                 # Create match_data wrapper to reuse insert_match_data
                 match_wrapper = {'data': match}
-                insert_match_data(conn, match_wrapper)
+                insert_match_data(match_wrapper)
                 inserted += 1
             except Exception as ie:
                 print(f"Error inserting match at index {idx}: {ie}")
@@ -394,6 +391,9 @@ def insert_player_blind_stats(username, avg, sd, ESFR, CR, FBR, CS_score, avg_AB
         if conn is not None:
             conn.close()
 
+def insert_ESP_prediction_data():
+    return "Hi still in development"
+
 if __name__ == '__main__':
     conn = db_connection()
     while True:
@@ -430,7 +430,7 @@ if __name__ == '__main__':
                       # progress print only
                       print(f"Processing {idx+1}/{total}: match {match_id}")
                       match_data = match_data_collector(match_id, quiet=True)
-                      insert_match_data(conn, match_data)
+                      insert_match_data(match_data)
                       processed += 1
                       if delay > 0:
                           time.sleep(delay)
@@ -440,7 +440,7 @@ if __name__ == '__main__':
               elif choice == 3:
                   matchId = input("Enter the match ID: ")
                   match_data = match_data_collector(matchId)
-                  insert_match_data(conn, match_data)
+                  insert_match_data(match_data)
               elif choice == 4:
                       print("\n")
                       break
