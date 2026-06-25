@@ -134,18 +134,84 @@ def calculate_expected_time(username, match_id, avg, sd, esfr, cr, fbr, CS_score
         final_pred_time = base_pred_time + confidence_interval
 
     if testing_status:
-        pred_data = [username, final_pred_time, row["stronghold_time"]]
+        pred_data = [match_id, username, final_pred_time, row["stronghold_time"]]
         results.append(pred_data)
-        insert_ESP_prediction_data()
+        insert_ESP_prediction_data(match_id, username, final_pred_time, row["stronghold_time"])
 
     return final_pred_time
-    
-def main():
+
+
+def calculate_expected_time_live(username, match_id, avg, sd, esfr, cr, fbr, CS_score, avg_blind_ahead, avg_blind_behind, live_match_data):
+    """Calculate expected time using live match data from JSON instead of DB."""
+    testing_status = True
+
+    players = live_match_data.get('players', []) or []
+    timelines = live_match_data.get('timelines', []) or []
+
+    player_uuid = None
+    opponent_uuid = None
+    for p in players:
+        if p and isinstance(p, dict):
+            if p.get('nickname') == username:
+                player_uuid = p.get('uuid')
+            else:
+                opponent_uuid = p.get('uuid')
+
+    if not player_uuid:
+        print(f"Player {username} not found in live match data")
+        return
+
+    blind_time = None
+    stronghold_time = None
+    opponent_blind_time = None
+    opponent_stronghold_time = None
+
+    for t in timelines:
+        if not t or not isinstance(t, dict):
+            continue
+        if t.get('uuid') == player_uuid and t.get('type') == 'projectelo.timeline.blind_travel':
+            blind_time = t.get('time')
+        if t.get('uuid') == player_uuid and t.get('type') == 'story.follow_ender_eye':
+            stronghold_time = t.get('time')
+        if t.get('uuid') == opponent_uuid and t.get('type') == 'projectelo.timeline.blind_travel':
+            opponent_blind_time = t.get('time')
+        if t.get('uuid') == opponent_uuid and t.get('type') == 'story.follow_ender_eye':
+            opponent_stronghold_time = t.get('time')
+
+    if blind_time is None or stronghold_time is None:
+        print(f"No blind/stronghold data found for player {username} in live match")
+        print(timelines)
+        return
+
+    if opponent_blind_time is not None and blind_time < opponent_blind_time:
+        blind_ahead = True
+    else: 
+        blind_ahead = False
+
+    if blind_ahead:
+        base_pred_time = (blind_time + avg_blind_ahead)
+        confidence_interval = 2 * sd * (CS_score/100)
+        final_pred_time = base_pred_time + confidence_interval
+    else :
+        base_pred_time = (blind_time + avg_blind_behind)
+        confidence_interval = 2 * sd * (CS_score/100)
+        final_pred_time = base_pred_time + confidence_interval
+
+    if testing_status:
+        pred_data = [match_id, username, final_pred_time, stronghold_time]
+        results.append(pred_data)
+        insert_ESP_prediction_data(match_id, username, final_pred_time, stronghold_time)
+
+    return final_pred_time
+
+def main(username=None):
     # Reload the module so the notebook uses the latest version of get_player_match_data
     importlib.reload(db_queries)
     importlib.reload(data_collector)
 
-    username = input("Enter the username: ")
+    if username == None:
+        username = input("Enter the username: ")
+
     print("Note that the user user stats are not created due to no match data available in the DB or the existing data is outdated")
     print(f"Therfore {username} latest data will be pulled")
 

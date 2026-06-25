@@ -126,6 +126,14 @@ CREATE TABLE timelines (
         ON DELETE CASCADE
 );
 
+CREATE TABLE esp_test_data(
+    pred_id INT AUTO_INCREMENT PRIMARY KEY,
+    match_id BIGINT NOT NULL,
+    username VARCHAR(50),
+    predicted_time DOUBLE,
+    actuaul_time DOUBLE
+);
+
 CREATE INDEX idx_player_nickname
 ON players(nickname);
 

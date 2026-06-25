@@ -92,6 +92,27 @@ def user_matches_data_collector(username, quiet=False):
         print(data)
     return data
 
+def get_live_pv_match_data(host, private_key, quiet=False):
+    """Pull real time match data from a private"""
+    url = f"{MCSR_BASE_URL}/users/{host}/live"
+    headers = headers = {
+              "Private-Key": "{private_key}"
+              }
+    
+    response = requests.get(url, headers=headers)
+    print("REQUEST URL:", response.url)
+    print("STATUS CODE:", response.status_code)
+
+    try:
+        data = response.json()
+    except requests.JSONDecodeError:
+        print("Response is not valid JSON:")
+        print(response.text)
+        raise
+    if not quiet:
+        print(data)
+    return data
+
 
 def insert_match_data(match_data):
     """Insert match data into matches and match_players tables"""
@@ -391,8 +412,51 @@ def insert_player_blind_stats(username, avg, sd, ESFR, CR, FBR, CS_score, avg_AB
         if conn is not None:
             conn.close()
 
-def insert_ESP_prediction_data():
-    return "Hi still in development"
+def insert_ESP_prediction_data(matchId, username, pred_time, actual_time):
+    try:
+        conn = db_connection()
+        if not conn:
+            print("No database connection")
+            return
+
+        cursor = conn.cursor()
+
+        query = """
+        INSERT INTO `esp_test_data`(`match_id`, `username`, `predicted_time`, `actuaul_time`)
+        VALUES (%s, %s, %s, %s)
+        """
+        # Convert to native Python floats before executing.
+        try:
+            pred_time = float(pred_time) if pred_time is not None else 0.0
+        except (TypeError, ValueError):
+            pred_time = 0.0
+
+        try:
+            actual_time = float(actual_time) if actual_time is not None else 0.0
+        except (TypeError, ValueError):
+            actual_time = 0.0
+
+        cursor.execute(query, (matchId, username, pred_time, actual_time),)
+
+        conn.commit()
+        print("Test data inserted successfully")
+        print("\n")
+
+    except mysql.connector.IntegrityError as e:
+        print("Invalid data:", e)
+        if conn:
+            conn.rollback()
+    except Exception as e:
+        print("Error occurred when inserting test data:", e)
+        print(traceback.format_exc())
+        if conn:
+            conn.rollback()
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if conn is not None:
+            conn.close()
+    return 
 
 if __name__ == '__main__':
     conn = db_connection()
