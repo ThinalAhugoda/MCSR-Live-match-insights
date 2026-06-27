@@ -1,0 +1,90 @@
+
+{
+  "status": "success",
+  "data": {
+    "lastId": null,
+    "type": 3,
+    "status": "running",
+    "time": 634385,
+    "players": [
+      {
+        "uuid": "2cb2e79ce02646c1862d489b91c78ceb",
+        "nickname": "Lanith07",
+        "roleType": 1,
+        "eloRate": 762,
+        "eloRank": null,
+        "country": "lk"
+      }
+    ],
+    "spectators": [],
+    "timelines": [
+      {
+        "uuid": "2cb2e79ce02646c1862d489b91c78ceb",
+        "time": 393317,
+        "type": "husbandry.root"
+      },
+      {
+        "uuid": "2cb2e79ce02646c1862d489b91c78ceb",
+        "time": 380421,
+        "type": "story.obtain_armor"
+      },
+      {
+        "uuid": "2cb2e79ce02646c1862d489b91c78ceb",
+        "time": 278866,
+        "type": "story.form_obsidian"
+      },
+      {
+        "uuid": "2cb2e79ce02646c1862d489b91c78ceb",
+        "time": 272696,
+        "type": "nether.obtain_crying_obsidian"
+      },
+      {
+        "uuid": "2cb2e79ce02646c1862d489b91c78ceb",
+        "time": 268589,
+        "type": "nether.loot_bastion"
+      },
+      {
+        "uuid": "2cb2e79ce02646c1862d489b91c78ceb",
+        "time": 256673,
+        "type": "nether.find_bastion"
+      },
+      {
+        "uuid": "2cb2e79ce02646c1862d489b91c78ceb",
+        "time": 237947,
+        "type": "story.enter_the_nether"
+      },
+      {
+        "uuid": "2cb2e79ce02646c1862d489b91c78ceb",
+        "time": 237732,
+        "type": "nether.root"
+      },
+      {
+        "uuid": "2cb2e79ce02646c1862d489b91c78ceb",
+        "time": 223137,
+        "type": "story.lava_bucket"
+      },
+      {
+        "uuid": "2cb2e79ce02646c1862d489b91c78ceb",
+        "time": 209332,
+        "type": "story.mine_stone"
+      },
+      {
+        "uuid": "2cb2e79ce02646c1862d489b91c78ceb",
+        "time": 107027,
+        "type": "story.iron_tools"
+      },
+      {
+        "uuid": "2cb2e79ce02646c1862d489b91c78ceb",
+        "time": 90635,
+        "type": "story.root"
+      },
+      {
+        "uuid": "2cb2e79ce02646c1862d489b91c78ceb",
+        "time": 32220,
+        "type": "story.smelt_iron"
+      }
+    ],
+    "completions": [],
+    "data": {}
+  }
+}

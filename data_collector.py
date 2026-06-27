@@ -96,7 +96,7 @@ def get_live_pv_match_data(host, private_key, quiet=False):
     """Pull real time match data from a private"""
     url = f"{MCSR_BASE_URL}/users/{host}/live"
     headers = headers = {
-              "Private-Key": "{private_key}"
+              "Private-Key": private_key
               }
     
     response = requests.get(url, headers=headers)

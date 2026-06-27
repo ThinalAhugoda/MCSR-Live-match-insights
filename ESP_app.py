@@ -96,47 +96,167 @@ def get_live_players():
         except ValueError:
             print("Please enter a valid number.")
 
+import time
+
 def detect_blind_event(host, private_key):
     """This function checks for the blind event in the live match and runs the ESP predictor"""
 
-    previous_timeline = {}
     initial_data_pull = False
+    found_players = []
+    eligible_players = []
+    processed_players = set()  # Track who we already ran the predictor for
+
     try:
         while True:
-            current_data = get_live_pv_match_data()
+            current_data = get_live_pv_match_data(host, private_key)
 
             if current_data is None:
                 print("No match data provided")
                 return
 
             if not isinstance(current_data, dict):
-                print(f"Skipping {current_data}")
+                print(f"Skipping invalid data format: {current_data}")
                 return
 
+            #  ONE-TIME INITIAL SETUP
             if not initial_data_pull:
                 match_id = current_data.get('id')
-                match_time = current_data.get('time')
-
                 players = current_data.get('players', []) or []
-                print(f"Ongoing match:{match_id} found in {host} private room")
-                initial_data_pull = True
-
+                print(f"Ongoing match: {match_id} found in {host} private room")
+                
                 for player in players:
-                    if not player or not isinstance(player, dict):
-                        print(f"Skipping malformed player entry in match {match_id}: {player}")
-                        continue
-                    player_uuid = player.get('uuid')
-                    nickname = player.get('nickname')
+                    if player and isinstance(player, dict):
+                        found_players.append(player.get('uuid'))
 
-                # This is the main checkpoint that detects if a player has entered blind or not
-                timeline = current_data.get('timelines', []) or []
-                print(timeline)
-                #Still in development
-                break
+                # Determine who is eligible 
+                target_type = 'nether.find_fortress'
+                fort_results = {
+                    player_id: [
+                        item for item in current_data['data']['timelines'] 
+                        if item['uuid'] == player_id and item['type'] == target_type
+                    ]
+                    for player_id in found_players
+                }
+
+                eligible_players = [pid for pid, timeline in fort_results.items() if len(timeline) == 0]
+
+                if len(eligible_players) == 0:
+                    print("Both players have entered the fort. Aborting insight prediction.")
+                    return
+                
+                print(f"Eligible players for tracking: {eligible_players}")
+                initial_data_pull = True  # Setup done
+
+            target_type = 'projectelo.timeline.blind_travel'
+
+            # Get blind results ONLY for eligible players who haven't finished yet
+            blind_results = {
+                player_id: [
+                    item for item in current_data['data']['timelines'] 
+                    if item['uuid'] == player_id and item['type'] == target_type
+                ]
+                for player_id in eligible_players if player_id not in processed_players
+            }
+            
+            # Check who just entered blind travel on this pull
+            newly_entered = [pid for pid, timeline in blind_results.items() if len(timeline) > 0]
+            
+            if newly_entered:
+                match_id = current_data.get('id')
+                
+                for player_id in newly_entered:
+                    print(f"Player {player_id} entered blind!")
+                    
+                    # Fire off the single prediction calculation immediately
+                    get_single_eye_spy_prediction(player_id, match_id, match_data=current_data)
+                    
+                    processed_players.add(player_id)
+
+            if len(processed_players) == len(eligible_players):
+                print("All eligible players have entered blind and been processed. Ending tracking.")
+                return  
+            
+            else:
+                print("Waiting for remaining player(s) to enter blind split...")
+                time.sleep(5)
 
     except Exception as e:
-        print(f"Error inserting user data: {e}")
-        conn.rollback()
+        print(f"Error in tracking loop: {e}")
+
+    return True
+
+def get_single_eye_spy_prediction(player_uuid, matchId, match_data=None):
+    """Fetches stats and runs the ESP predictor for ONE specific player instantly"""
+    conn = db_connection()
+    if not conn:
+        print("No DB connection")
+        return None
+
+    cursor = conn.cursor()
+    try:
+        today = date.today()
+        span = timedelta(days=25)
+        until = today - span
+        starting_date = until.strftime('%Y-%m-%d')
+
+        tomorrow = today + timedelta(days=1)
+        end_date = tomorrow.strftime('%Y-%m-%d')
+
+        # Look up just this specific player's historical metrics
+        cursor.execute(
+            "SELECT * FROM player_blind_stats WHERE username = %s AND date_time BETWEEN %s AND %s ORDER BY date_time DESC LIMIT 1;",
+            (player_uuid, starting_date, end_date),
+        )
+        stats = cursor.fetchone()
+
+        if not stats:
+            print(f"No stats for {player_uuid}; generating new blind stats...")
+            main(player_uuid) 
+            time.sleep(3)
+            conn.commit()
+            
+            cursor.execute(
+                "SELECT * FROM player_blind_stats WHERE username = %s AND date_time BETWEEN %s AND %s ORDER BY date_time DESC LIMIT 1;",
+                (player_uuid, starting_date, end_date),
+            )
+            stats = cursor.fetchone()
+
+        if stats:
+            # Unpack the metrics
+            avg, sd, esfr, cr, fbr, CS_score, avg_blind_ahead, avg_blind_behind = stats[2:10]
+
+            if match_data is not None:
+                final_time_ms = calculate_expected_time_live(
+                    player_uuid, matchId, avg, sd, esfr, cr, fbr, CS_score, avg_blind_ahead, avg_blind_behind, match_data
+                )
+            else:
+                final_time_ms = calculate_expected_time(
+                    player_uuid, matchId, avg, sd, esfr, cr, fbr, CS_score, avg_blind_ahead, avg_blind_behind
+                )
+
+            final_time_s = int(final_time_ms / 1000)
+            minutes, seconds = divmod(final_time_s, 60)
+            eye_spy_first_rate = esfr * 100
+
+            print("\n" + "="*47)
+            print("LOGGED INSIGHT: MCSR EYE SPY PREDICTION")
+            print("="*47)
+            print(f"Player   : {player_uuid}")
+            print(f"ETA Split: {int(minutes):02d}:{seconds:05.2f}")
+            print(f"ESFR     : {eye_spy_first_rate:.2f}%")
+            print("="*47 + "\n")
+            
+            return final_time_ms
+        else:
+            print(f"Unable to obtain blind stats for {player_uuid} after generation")
+            return None
+
+    except TypeError as e:
+        print(f"Type Error occurred when collecting player blind stats: {e}")
+        return None
+    finally:
+        cursor.close()
+        conn.close()
 def get_eye_spy_prediction(players, matchId, match_data=None):
 
     conn = db_connection()
@@ -148,7 +268,7 @@ def get_eye_spy_prediction(players, matchId, match_data=None):
     try:
         for player in players:
             today = date.today()
-            span = timedelta(days=5)
+            span = timedelta(days=25)
             until = today - span
             starting_date = until.strftime('%Y-%m-%d')
 
@@ -274,8 +394,8 @@ if __name__ == '__main__':
                     mode="Live"
                     get_eye_spy_prediction(participants, match_id, match_data)
             elif choice == 3:
-                host_username = print("Enter the username of the Host/co-host: ")
-                private_key = print("Enter the Private key: ")
+                host_username = input("Enter the username of the Host/co-host: ")
+                private_key = input("Enter the Private key: ")
                 detect_blind_event(host_username, private_key)
             elif choice == 4:
                 print("Thanks for using the MCSR LIVE INSIGHTS")

@@ -178,7 +178,7 @@ def calculate_expected_time_live(username, match_id, avg, sd, esfr, cr, fbr, CS_
         if t.get('uuid') == opponent_uuid and t.get('type') == 'story.follow_ender_eye':
             opponent_stronghold_time = t.get('time')
 
-    if blind_time is None or stronghold_time is None:
+    if blind_time is None:
         print(f"No blind/stronghold data found for player {username} in live match")
         print(timelines)
         return
