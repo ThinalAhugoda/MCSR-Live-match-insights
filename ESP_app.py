@@ -120,13 +120,16 @@ def detect_blind_event(host, private_key):
 
             #  ONE-TIME INITIAL SETUP
             if not initial_data_pull:
-                match_id = current_data.get('id')
-                players = current_data.get('players', []) or []
-                print(f"Ongoing match: {match_id} found in {host} private room")
+                players = current_data.get("data", {}).get("players", [])
+                print(f"Ongoing match: found in {host}s private room")
                 
                 for player in players:
                     if player and isinstance(player, dict):
                         found_players.append(player.get('uuid'))
+                        nickname = player.get('nickname')
+                        role_type = player.get('roleType')
+                        country = player.get('country')
+
 
                 # Determine who is eligible 
                 target_type = 'nether.find_fortress'
@@ -137,6 +140,7 @@ def detect_blind_event(host, private_key):
                     ]
                     for player_id in found_players
                 }
+                print(fort_results)
 
                 eligible_players = [pid for pid, timeline in fort_results.items() if len(timeline) == 0]
 
@@ -168,7 +172,7 @@ def detect_blind_event(host, private_key):
                     print(f"Player {player_id} entered blind!")
                     
                     # Fire off the single prediction calculation immediately
-                    get_single_eye_spy_prediction(player_id, match_id, match_data=current_data)
+                    get_single_eye_spy_prediction(player_id, nickname, role_type, country, match_id, match_data=current_data)
                     
                     processed_players.add(player_id)
 
@@ -185,7 +189,7 @@ def detect_blind_event(host, private_key):
 
     return True
 
-def get_single_eye_spy_prediction(player_uuid, matchId, match_data=None):
+def get_single_eye_spy_prediction(player_uuid, nickname, role_type, country, matchId, match_data=None):
     """Fetches stats and runs the ESP predictor for ONE specific player instantly"""
     conn = db_connection()
     if not conn:
@@ -202,22 +206,36 @@ def get_single_eye_spy_prediction(player_uuid, matchId, match_data=None):
         tomorrow = today + timedelta(days=1)
         end_date = tomorrow.strftime('%Y-%m-%d')
 
+        #Get the username from the passed UUID if not add a new player record
+        cursor.execute("SELECT * FROM players WHERE uuid=%s ;", (player_uuid),)
+        player = cursor.fetchone()
+
+        if player is None:
+            # Insert/update into players table
+            player_query = """
+                INSERT INTO players (uuid, nickname, role_type, country)
+                VALUES (%s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    nickname=VALUES(nickname), country=VALUES(country)
+            """
+            cursor.execute(player_query, (player_uuid, nickname, role_type, country))
+
         # Look up just this specific player's historical metrics
         cursor.execute(
             "SELECT * FROM player_blind_stats WHERE username = %s AND date_time BETWEEN %s AND %s ORDER BY date_time DESC LIMIT 1;",
-            (player_uuid, starting_date, end_date),
+            (nickname, starting_date, end_date),
         )
         stats = cursor.fetchone()
 
         if not stats:
-            print(f"No stats for {player_uuid}; generating new blind stats...")
-            main(player_uuid) 
+            print(f"No stats for {nickname}; generating new blind stats...")
+            main(nickname) 
             time.sleep(3)
             conn.commit()
             
             cursor.execute(
                 "SELECT * FROM player_blind_stats WHERE username = %s AND date_time BETWEEN %s AND %s ORDER BY date_time DESC LIMIT 1;",
-                (player_uuid, starting_date, end_date),
+                (nickname, starting_date, end_date),
             )
             stats = cursor.fetchone()
 
@@ -227,11 +245,11 @@ def get_single_eye_spy_prediction(player_uuid, matchId, match_data=None):
 
             if match_data is not None:
                 final_time_ms = calculate_expected_time_live(
-                    player_uuid, matchId, avg, sd, esfr, cr, fbr, CS_score, avg_blind_ahead, avg_blind_behind, match_data
+                    nickname, matchId, avg, sd, esfr, cr, fbr, CS_score, avg_blind_ahead, avg_blind_behind, match_data
                 )
             else:
                 final_time_ms = calculate_expected_time(
-                    player_uuid, matchId, avg, sd, esfr, cr, fbr, CS_score, avg_blind_ahead, avg_blind_behind
+                    nickname, matchId, avg, sd, esfr, cr, fbr, CS_score, avg_blind_ahead, avg_blind_behind
                 )
 
             final_time_s = int(final_time_ms / 1000)
@@ -241,14 +259,14 @@ def get_single_eye_spy_prediction(player_uuid, matchId, match_data=None):
             print("\n" + "="*47)
             print("LOGGED INSIGHT: MCSR EYE SPY PREDICTION")
             print("="*47)
-            print(f"Player   : {player_uuid}")
+            print(f"Player   : {nickname}")
             print(f"ETA Split: {int(minutes):02d}:{seconds:05.2f}")
             print(f"ESFR     : {eye_spy_first_rate:.2f}%")
             print("="*47 + "\n")
             
             return final_time_ms
         else:
-            print(f"Unable to obtain blind stats for {player_uuid} after generation")
+            print(f"Unable to obtain blind stats for {nickname} after generation")
             return None
 
     except TypeError as e:
