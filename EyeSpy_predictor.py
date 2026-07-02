@@ -146,7 +146,7 @@ def calculate_expected_time_live(username, match_id, avg, sd, esfr, cr, fbr, CS_
     testing_status = True
 
     players = live_match_data.get('players', []) or []
-    timelines = live_match_data.get('timelines', []) or []
+    data = live_match_data.get('data', {}) or {}
 
     player_uuid = None
     opponent_uuid = None
@@ -166,21 +166,32 @@ def calculate_expected_time_live(username, match_id, avg, sd, esfr, cr, fbr, CS_
     opponent_blind_time = None
     opponent_stronghold_time = None
 
-    for t in timelines:
-        if not t or not isinstance(t, dict):
-            continue
-        if t.get('uuid') == player_uuid and t.get('type') == 'projectelo.timeline.blind_travel':
-            blind_time = t.get('time')
-        if t.get('uuid') == player_uuid and t.get('type') == 'story.follow_ender_eye':
-            stronghold_time = t.get('time')
-        if t.get('uuid') == opponent_uuid and t.get('type') == 'projectelo.timeline.blind_travel':
-            opponent_blind_time = t.get('time')
-        if t.get('uuid') == opponent_uuid and t.get('type') == 'story.follow_ender_eye':
-            opponent_stronghold_time = t.get('time')
+    # Extract timeline data from the data dictionary keyed by UUID
+    if player_uuid in data:
+        player_timeline = data[player_uuid].get('timeline')
+        if player_timeline is None:
+            print(f"Player {username} has not entered blind split yet. Aborting prediction")
+            return
+        if isinstance(player_timeline, dict):
+            timeline_type = player_timeline.get('type')
+            timeline_time = player_timeline.get('time')
+            if timeline_type == 'projectelo.timeline.blind_travel':
+                blind_time = timeline_time
+            elif timeline_type == 'story.follow_ender_eye':
+                stronghold_time = timeline_time
+
+    if opponent_uuid and opponent_uuid in data:
+        opponent_timeline = data[opponent_uuid].get('timeline')
+        if isinstance(opponent_timeline, dict):
+            timeline_type = opponent_timeline.get('type')
+            timeline_time = opponent_timeline.get('time')
+            if timeline_type == 'projectelo.timeline.blind_travel':
+                opponent_blind_time = timeline_time
+            elif timeline_type == 'story.follow_ender_eye':
+                opponent_stronghold_time = timeline_time
 
     if blind_time is None:
-        print(f"No blind/stronghold data found for player {username} in live match")
-        print(timelines)
+        print(f"No blind/stronghold data found for player {username} in live match. Aborting prediction")
         return
 
     if opponent_blind_time is not None and blind_time < opponent_blind_time:

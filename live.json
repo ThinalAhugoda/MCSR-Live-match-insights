@@ -1,0 +1,37 @@
+{
+  "currentTime": 433820,
+  "players": [
+    {
+      "uuid": "3da9e8cec2d348f781a98d095b1d0325",
+      "nickname": "dolqhin",
+      "roleType": 1,
+      "eloRate": 1961,
+      "eloRank": 82,
+      "country": "us"
+    },
+    {
+      "uuid": "dd34e44dfe5d4e05923d876b9c34ca5f",
+      "nickname": "zorn89",
+      "roleType": 1,
+      "eloRate": 1988,
+      "eloRank": 69,
+      "country": "us"
+    }
+  ],
+  "data": {
+    "3da9e8cec2d348f781a98d095b1d0325": {
+      "liveUrl": "https://twitch.tv/dolqmango",
+      "timeline": {
+        "time": 371873,
+        "type": "projectelo.timeline.blind_travel"
+      }
+    },
+    "dd34e44dfe5d4e05923d876b9c34ca5f": {
+      "liveUrl": null,
+      "timeline": {
+        "time": 165156,
+        "type": "nether.find_bastion"
+      }
+    }
+  }
+}

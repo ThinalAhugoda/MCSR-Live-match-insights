@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCSR Live Insights - Eye Spy Battle</title>
+    <link rel="stylesheet" href="/static/esp_graphic.css">
+</head>
+<body>
+    <div class="container">
+        {% if overlay.visible and overlay.players %}
+            <div class="top-bar">
+                <div class="logo-placeholder">
+                    <img src="/static/logo.jpg" alt="MCSR Logo" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Crect fill=%22%23fff%22 width=%22100%22 height=%22100%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 font-size=%2212%22 fill=%22%23999%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3ELOGO%3C/text%3E%3C/svg%3E'">
+                </div>
+                <div class="title">Eye-Spy Battle - MCSR Insights</div>
+                <div class="sponsor-placeholder">
+                    <img src="/static/sponsor.jpg" alt="Sponsor" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%2240%22%3E%3Crect fill=%22%23fff%22 width=%22120%22 height=%2240%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 font-size=%2210%22 fill=%22%23999%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3ESPONSOR%3C/text%3E%3C/svg%3E'">
+                </div>
+            </div>
+
+            <div class="content">
+                <!-- Left Player -->
+                <div class="player-section">
+                    <div class="player-name">{{ overlay.players[0].name }}</div>
+                    <div class="player-logo">
+                        <img src="/static/players/{{ overlay.players[0].name | lower }}.png" alt="{{ overlay.players[0].name }}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%22120%22%3E%3Crect fill=%22%233a3a3a%22 width=%22120%22 height=%22120%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 font-size=%2214%22 fill=%22%23999%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3EPLAYER%3C/text%3E%3C/svg%3E'">
+                    </div>
+                    <div class="player-esfr">{{ overlay.players[0].ESFR }}</div>
+                    <div class="player-label">Expected Stronghold entry</div>
+                    <div class="player-timestamp">{{ overlay.players[0].expected_time }}</div>
+                </div>
+
+                <!-- Center Section -->
+                <div class="center-section">
+                    <div class="gap-box">
+                        <div class="gap-label">Predicted Gap to Stronghold</div>
+                        <div class="gap-value"></div>
+                    </div>
+                    <div class="confidence">Timeline Bar</div>
+                    
+                    <div style="width: 100%; margin-top: 30px; position: relative; height: 30px;">
+                        <div style="position: relative; height: 25px;">
+                            <div class="progress-bar-container">
+                                <div class="progress-segment"></div>
+                                <div class="progress-segment"></div>
+                                <div class="progress-segment"></div>
+                                <div class="progress-segment"></div>
+                                <div class="progress-segment"></div>
+                                <div class="progress-segment"></div>
+                                <div class="progress-segment"></div>
+                                <div class="progress-segment"></div>
+                                <div class="progress-segment"></div>
+                                <div class="progress-segment"></div>
+                            </div>
+                            <div class="progress-label">100%</div>
+                            <div class="progress-marker"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Player -->
+                <div class="player-section">
+                    <div class="player-name">{% if overlay.players|length > 1 %}{{ overlay.players[1].name }}{% else %}{{ overlay.players[0].name }}{% endif %}</div>
+                    <div class="player-logo">
+                        <img src="/static/players/{% if overlay.players|length > 1 %}{{ overlay.players[1].name | lower }}{% else %}{{ overlay.players[0].name | lower }}{% endif %}.png" alt="Player" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%22120%22%3E%3Crect fill=%22%233a3a3a%22 width=%22120%22 height=%22120%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 font-size=%2214%22 fill=%22%23999%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3EPLAYER%3C/text%3E%3C/svg%3E'">
+                    </div>
+                    <div class="player-esfr">{% if overlay.players|length > 1 %}{{ overlay.players[1].ESFR }}{% else %}{{ overlay.players[0].ESFR }}{% endif %}</div>
+                    <div class="player-label">Expected Stronghold entry</div>
+                    <div class="player-timestamp">{% if overlay.players|length > 1 %}{{ overlay.players[1].expected_time }}{% else %}{{ overlay.players[0].expected_time }}{% endif %}</div>
+                </div>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <h2>Waiting for Eye Spy data...</h2>
+                <p>Predictions will appear here when available</p>
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>

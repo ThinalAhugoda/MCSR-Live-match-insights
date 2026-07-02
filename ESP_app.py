@@ -9,6 +9,7 @@ import traceback
 import time
 import pandas as pd
 from datetime import date, timedelta
+from OverlayState import overlay
 
 from db_queries import get_match_data, get_player_match_data
 from EyeSpy_predictor import calculate_expected_time, main, calculate_expected_time_live
@@ -276,7 +277,7 @@ def get_single_eye_spy_prediction(player_uuid, nickname, role_type, country, mat
         cursor.close()
         conn.close()
 def get_eye_spy_prediction(players, matchId, match_data=None):
-
+    data = []
     conn = db_connection()
     if not conn:
         print("No DB connection")
@@ -349,6 +350,10 @@ def get_eye_spy_prediction(players, matchId, match_data=None):
                         avg_blind_behind,
                     )
 
+                if final_time_ms is None:
+                    print('Players have still not entered the blind split')
+                    break
+                
                 final_time_s = int(final_time_ms / 1000)
                 minutes, seconds = divmod(final_time_s, 60)
                 eye_spy_first_rate = esfr * 100
@@ -366,6 +371,19 @@ def get_eye_spy_prediction(players, matchId, match_data=None):
             else:
                 print(f"Unable to obtain blind stats for {player} after generation")
 
+            expected_time= f"{int(minutes):02d}:{seconds:05.2f}"
+            displaying_esfr = f"ESFR : {eye_spy_first_rate:.2f}%"
+
+            pred_data={
+                "name": player,
+                "ESFR": displaying_esfr,
+                "expected_time": expected_time
+            }
+
+            data.append(pred_data)
+
+        return True, data
+
     except TypeError as e:
         print(f"Type Error occured when collecting player blind stats: {e}")
     finally:
@@ -378,9 +396,7 @@ def get_eye_spy_prediction(players, matchId, match_data=None):
         except Exception:
             pass
 
-
-
-if __name__ == '__main__':
+def app():
     conn = db_connection()
     while True:
         print("\n")
@@ -401,8 +417,19 @@ if __name__ == '__main__':
                 matchId = input("Enter match ID: ")
                 players = get_match_data(matchId)
                 mode="Normal"
-                get_eye_spy_prediction(players, matchId)
+                isDone, prediction = get_eye_spy_prediction(players, matchId)
                 print("\n")
+                print(prediction)
+                
+                #Combining prediction dictionaries and update the overlayState OBJECT for HTML graphics
+                if isDone:
+                   overlay.update({
+                       "visible": True,
+                       "type": "eye_spy",
+                       "title": "Eye Spy Battle",
+                       "players": prediction
+                   })
+
             elif choice == 2:
                 print("Fetching live matches...")
                 participants, match_data = get_live_players()
@@ -425,3 +452,6 @@ if __name__ == '__main__':
     if conn:
         conn.close()
         print("Database connection closed")
+
+if __name__ == '__main__':
+    app()
