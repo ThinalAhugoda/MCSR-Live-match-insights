@@ -1,0 +1,8 @@
+# Ignore environment variable files
+.env
+.env.local
+
+# Ignore configuration files containing keys
+config.json
+auth.ini
+credentials.txt
